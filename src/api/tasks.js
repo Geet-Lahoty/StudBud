@@ -21,13 +21,21 @@ export async function loadTasks() {
 
 /**
  * Insert multiple tasks at once.
- * The array should NOT include id, user_id, status, or quiz_score —
- * Supabase defaults handle those.
+ * Ensures user_id is attached so RLS checks pass reliably.
  */
 export async function addTasks(tasks) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const tasksToInsert = tasks.map((t) => ({
+    ...t,
+    ...(user?.id ? { user_id: user.id } : {}),
+  }));
+
   const { data, error } = await supabase
     .from("tasks")
-    .insert(tasks)
+    .insert(tasksToInsert)
     .select();
 
   if (error) throw new Error(error.message);
@@ -49,9 +57,19 @@ export async function updateTaskStatus(id, status) {
 
 /** Save a quiz attempt row. */
 export async function saveQuizAttempt(taskId, score, total, passed) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const { data, error } = await supabase
     .from("quiz_attempts")
-    .insert({ task_id: taskId, score, total, passed })
+    .insert({
+      task_id: taskId,
+      score,
+      total,
+      passed,
+      ...(user?.id ? { user_id: user.id } : {}),
+    })
     .select()
     .single();
 

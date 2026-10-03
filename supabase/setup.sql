@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- Upgrade existing tasks table if it was created with old schema
 DO $$ BEGIN
   -- Add user_id if missing
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE;
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users ON DELETE CASCADE;
+  ALTER TABLE tasks ALTER COLUMN user_id SET DEFAULT auth.uid();
   -- Add subject if missing
   ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT 'General';
   -- Add date and type columns if missing
