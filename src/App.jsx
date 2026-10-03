@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Header from "./components/Header";
 import Hero from "./components/Hero";
 import ArchitectureFlow from "./components/ArchitectureFlow";
@@ -6,6 +6,7 @@ import IntellectualRigor from "./components/IntellectualRigor";
 import MethodologyComparison from "./components/MethodologyComparison";
 import Footer from "./components/Footer";
 import AuthModal from "./components/AuthModal";
+import { supabase } from "./lib/supabase";
 
 export default function App() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -19,6 +20,26 @@ export default function App() {
   const handleCloseAuth = () => {
     setAuthModalOpen(false);
   };
+
+  useEffect(() => {
+    // Check the current authentication session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Current session:", session);
+    });
+
+    // Listen for authentication changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event);
+      console.log("Session:", session);
+    });
+
+    // Clean up the listener when the app unmounts
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="bg-surface text-on-surface min-h-screen flex flex-col selection:bg-secondary-fixed selection:text-on-secondary-fixed">

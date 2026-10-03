@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
+import { signIn, signUp } from "../services/authService";
 
 export default function AuthModal({ initialTab = "login", onClose }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [email, setEmail] = useState("");
   const [passkey, setPasskey] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   // Handle ESC key press
   useEffect(() => {
@@ -13,26 +16,47 @@ export default function AuthModal({ initialTab = "login", onClose }) {
         onClose();
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
+
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (activeTab === "enroll") {
-      setSuccessMessage("Scholar enrollment registered. Access key generated.");
-    } else {
-      setSuccessMessage("Scholar authenticated successfully. Redirecting to Timetable...");
+
+    setErrorMessage("");
+    setSuccessMessage("");
+    setLoading(true);
+
+    try {
+      if (activeTab === "enroll") {
+        await signUp(email, passkey);
+
+        setSuccessMessage(
+          "Scholar enrollment successful. Your account has been created."
+        );
+      } else {
+        await signIn(email, passkey);
+
+        setSuccessMessage(
+          "Scholar authenticated successfully. Redirecting to Timetable..."
+        );
+      }
+
+      setTimeout(() => {
+        onClose();
+        setSuccessMessage("");
+      }, 1500);
+    } catch (error) {
+      setErrorMessage(error.message || "Authentication failed.");
+    } finally {
+      setLoading(false);
     }
-    setTimeout(() => {
-      onClose();
-      setSuccessMessage("");
-    }, 1500);
   };
 
   const handleSsoClick = (provider) => {
-    alert(`Redirecting to ${provider}...`);
+    alert(`${provider} authentication will be connected later.`);
   };
 
   return (
@@ -57,13 +81,17 @@ export default function AuthModal({ initialTab = "login", onClose }) {
           <span className="material-symbols-outlined text-xl">close</span>
         </button>
 
-        {/* Modal Tabs: Existing Scholar vs New Scholar */}
+        {/* Modal Tabs */}
         <div className="flex items-center justify-between pb-3 mb-6 border-b border-outline-variant">
           <div className="flex items-center gap-2">
             <button
               type="button"
               id="auth-modal-title"
-              onClick={() => setActiveTab("login")}
+              onClick={() => {
+                setActiveTab("login");
+                setErrorMessage("");
+                setSuccessMessage("");
+              }}
               className={`text-xs uppercase font-semibold tracking-wider px-3 py-1.5 rounded transition-all cursor-pointer ${
                 activeTab === "login"
                   ? "bg-primary text-on-primary"
@@ -72,9 +100,14 @@ export default function AuthModal({ initialTab = "login", onClose }) {
             >
               Existing Scholar
             </button>
+
             <button
               type="button"
-              onClick={() => setActiveTab("enroll")}
+              onClick={() => {
+                setActiveTab("enroll");
+                setErrorMessage("");
+                setSuccessMessage("");
+              }}
               className={`text-xs uppercase font-semibold tracking-wider px-3 py-1.5 rounded transition-all cursor-pointer ${
                 activeTab === "enroll"
                   ? "bg-primary text-on-primary"
@@ -84,12 +117,23 @@ export default function AuthModal({ initialTab = "login", onClose }) {
               New Scholar
             </button>
           </div>
+
           <span className="font-mono text-[10px] text-outline font-semibold">
             SECURE-TLS
           </span>
         </div>
 
-        {/* Success Alert Banner if submitted */}
+        {/* Error Message */}
+        {errorMessage && (
+          <div className="p-4 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-mono text-center mb-4">
+            <span className="material-symbols-outlined text-sm inline-block mr-1.5 align-middle">
+              error
+            </span>
+            {errorMessage}
+          </div>
+        )}
+
+        {/* Success Message */}
         {successMessage ? (
           <div className="p-4 rounded-lg bg-secondary-fixed/50 border border-secondary text-on-secondary-fixed text-xs font-mono text-center mb-4">
             <span className="material-symbols-outlined text-sm inline-block mr-1.5 align-middle">
@@ -107,6 +151,7 @@ export default function AuthModal({ initialTab = "login", onClose }) {
               >
                 Institutional Email
               </label>
+
               <div className="relative">
                 <input
                   id="scholar-email"
@@ -117,6 +162,7 @@ export default function AuthModal({ initialTab = "login", onClose }) {
                   placeholder="scholar@university.edu"
                   className="w-full bg-surface-container-low border border-outline-variant text-on-surface px-4 py-2.5 rounded text-sm focus:bg-surface-container-lowest focus:border-secondary focus:outline-hidden transition-all"
                 />
+
                 <span className="material-symbols-outlined absolute right-3 top-2.5 text-outline text-lg pointer-events-none">
                   school
                 </span>
@@ -131,17 +177,21 @@ export default function AuthModal({ initialTab = "login", onClose }) {
                 >
                   Vault Passkey
                 </label>
+
                 <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    alert("Passkey recovery link dispatched to institutional email.");
+                    alert(
+                      "Password recovery will be connected later."
+                    );
                   }}
                   className="text-xs text-secondary hover:underline font-mono"
                 >
                   Forgot?
                 </a>
               </div>
+
               <div className="relative">
                 <input
                   id="scholar-passkey"
@@ -152,6 +202,7 @@ export default function AuthModal({ initialTab = "login", onClose }) {
                   placeholder="••••••••••••"
                   className="w-full bg-surface-container-low border border-outline-variant text-on-surface px-4 py-2.5 rounded text-sm focus:bg-surface-container-lowest focus:border-secondary focus:outline-hidden transition-all"
                 />
+
                 <span className="material-symbols-outlined absolute right-3 top-2.5 text-outline text-lg pointer-events-none">
                   key
                 </span>
@@ -160,32 +211,42 @@ export default function AuthModal({ initialTab = "login", onClose }) {
 
             <button
               type="submit"
-              className="w-full py-3 px-6 rounded bg-primary text-on-primary text-xs uppercase font-semibold tracking-wider hover:bg-black shadow transition-all flex items-center justify-center gap-2 active:translate-y-px mt-2 cursor-pointer"
+              disabled={loading}
+              className="w-full py-3 px-6 rounded bg-primary text-on-primary text-xs uppercase font-semibold tracking-wider hover:bg-black shadow transition-all flex items-center justify-center gap-2 active:translate-y-px mt-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <span>
-                {activeTab === "enroll"
+                {loading
+                  ? "Authenticating..."
+                  : activeTab === "enroll"
                   ? "Create Scholar Account"
                   : "Log In & Access Timetable"}
               </span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+
+              <span className="material-symbols-outlined text-sm">
+                {loading ? "hourglass_top" : "arrow_forward"}
+              </span>
             </button>
           </form>
         )}
 
-        {/* University SSO / Federated Login Buttons */}
+        {/* University SSO */}
         <div className="mt-6 pt-4 border-t border-outline-variant">
           <span className="block text-center text-[10px] font-mono uppercase tracking-wider text-outline mb-3">
             Institutional Single Sign-On
           </span>
+
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => handleSsoClick("University SSO Gateway")}
               className="flex items-center justify-center gap-2 py-2 px-3 rounded bg-surface-container hover:bg-surface-container-high border border-outline-variant text-primary text-xs font-semibold tracking-wider transition-colors cursor-pointer"
             >
-              <span className="material-symbols-outlined text-base">account_balance</span>
+              <span className="material-symbols-outlined text-base">
+                account_balance
+              </span>
               <span>University SSO</span>
             </button>
+
             <button
               type="button"
               onClick={() => handleSsoClick("Google Student Workspace")}
