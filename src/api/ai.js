@@ -18,13 +18,20 @@ import { GoogleGenAI } from "@google/genai";
 const MODEL = "gemma-4-26b-a4b-it";
 
 /** When true, functions return fake data instead of hitting the API. */
-const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
+const USE_MOCK =
+  import.meta.env.VITE_USE_MOCK === "true" ||
+  import.meta.env.USE_MOCK === "true";
 
 /**
  * SDK client.  Created once on module load.
  * In mock mode the key might be empty – that's fine, we never call the API.
  */
-const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+const apiKey =
+  import.meta.env.VITE_GEMINI_API_KEY ||
+  import.meta.env.GEMINI_API_KEY ||
+  "";
+
+const ai = new GoogleGenAI({ apiKey });
 
 // ──────────────────────────── helpers ───────────────────────────
 

@@ -10,7 +10,9 @@ import { useState, useEffect } from "react";
 import { generateQuiz } from "../api/ai";
 import { saveQuizAttempt, markTaskDone } from "../api/tasks";
 
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
+const DEMO_MODE =
+  import.meta.env.VITE_DEMO_MODE === "true" ||
+  import.meta.env.DEMO_MODE === "true";
 
 export default function QuizModal({ task, onClose, onPass }) {
   const [questions, setQuestions] = useState(null);
