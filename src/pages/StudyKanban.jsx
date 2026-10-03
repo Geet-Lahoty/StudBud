@@ -24,8 +24,9 @@ const SUBJECT_COLORS = [
 
 function subjectColor(subject) {
   let hash = 0;
-  for (let i = 0; i < subject.length; i++) {
-    hash = subject.charCodeAt(i) + ((hash << 5) - hash);
+  const str = subject || "";
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   return SUBJECT_COLORS[Math.abs(hash) % SUBJECT_COLORS.length];
 }
@@ -71,7 +72,7 @@ export default function StudyKanban({ tasks, refreshTasks, onNavigate }) {
   const [actionLoading, setActionLoading] = useState(null); // task id being acted on
 
   // Split tasks by status
-  const allSubjects = [...new Set(tasks.map((t) => t.subject))];
+  const allSubjects = [...new Set(tasks.map((t) => t.subject).filter(Boolean))];
   const filtered = filter === "all" ? tasks : tasks.filter((t) => t.subject === filter);
   const todo = filtered.filter((t) => t.status === "todo");
   const inProgress = filtered.filter((t) => t.status === "in_progress");
