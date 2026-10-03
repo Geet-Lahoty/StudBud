@@ -1,119 +1,125 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "./supabase";
 import Header from "./components/Header";
-import Footer from "./components/Footer";
-import AuthModal from "./components/AuthModal";
+import AuthScreen from "./components/AuthScreen";
 import SyllabusUpload from "./pages/SyllabusUpload";
 import StudyKanban from "./pages/StudyKanban";
-import QuizGate from "./pages/QuizGate";
-import Hero from "./components/Hero";
-import ArchitectureFlow from "./components/ArchitectureFlow";
-import IntellectualRigor from "./components/IntellectualRigor";
-import MethodologyComparison from "./components/MethodologyComparison";
+import Timetable from "./pages/Timetable";
+
+import { loadTasks } from "./api/tasks";
 
 export default function App() {
-  // Navigation state: "syllabus-upload" | "study-kanban" | "quiz-gate" | "landing"
-  const getInitialRoute = () => {
-    const hash = window.location.hash.replace("#", "");
-    if (["syllabus-upload", "study-kanban", "quiz-gate", "landing"].includes(hash)) {
-      return hash;
-    }
-    return "study-kanban";
-  };
+  const [session, setSession] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [view, setView] = useState("board");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [currentPath, setCurrentPath] = useState(getInitialRoute);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState("login");
-
+  // ── Auth: read session on mount + listen for changes ──
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace("#", "");
-      if (["syllabus-upload", "study-kanban", "quiz-gate", "landing"].includes(hash)) {
-        setCurrentPath(hash);
-      }
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
-
-  const navigateTo = (path) => {
-    setCurrentPath(path);
-    window.location.hash = path;
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleOpenAuth = (tab = "login") => {
-    setAuthModalTab(tab);
-    setAuthModalOpen(true);
-  };
-
-  const handleCloseAuth = () => {
-    setAuthModalOpen(false);
-  };
-
-  useEffect(() => {
-    // Check the current authentication session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("Current session:", session);
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setLoading(false);
     });
 
-    // Listen for authentication changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth event:", event);
-      console.log("Session:", session);
+    } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
     });
 
-    // Clean up the listener when the app unmounts
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
+  // ── Load tasks whenever the session changes ──
+  const refreshTasks = useCallback(async () => {
+    if (!session) return;
+    try {
+      setError(null);
+      const data = await loadTasks();
+      setTasks(data);
+    } catch (err) {
+      setError(err.message);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    refreshTasks();
+  }, [refreshTasks]);
+
+  // ── Logout ──
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setTasks([]);
+    setView("board");
+  };
+
+  // ── No session → auth screen ──
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="material-symbols-outlined text-4xl text-secondary animate-spin">
+            progress_activity
+          </span>
+          <span className="font-label text-sm text-on-surface-variant">Loading…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthScreen />;
+  }
+
   return (
-    <div className="bg-surface text-on-surface min-h-screen flex flex-col selection:bg-secondary-fixed selection:text-on-secondary-fixed">
-      {/* Top Header Navigation */}
+    <div className="bg-surface text-on-surface min-h-screen flex flex-col">
       <Header
-        currentPath={currentPath}
-        onNavigate={navigateTo}
-        onOpenAuth={handleOpenAuth}
+        view={view}
+        onNavigate={setView}
+        onLogout={handleLogout}
+        userEmail={session.user?.email}
       />
 
-      {/* Main Content Area */}
-      <main className="w-full pt-16 flex-1 bg-surface">
-        {currentPath === "syllabus-upload" && (
-          <SyllabusUpload onNavigate={navigateTo} />
-        )}
-
-        {currentPath === "study-kanban" && (
-          <StudyKanban onOpenQuizGate={() => navigateTo("quiz-gate")} />
-        )}
-
-        {currentPath === "quiz-gate" && (
-          <QuizGate onNavigate={navigateTo} />
-        )}
-
-        {currentPath === "landing" && (
-          <div className="pt-4">
-            <Hero />
-            <ArchitectureFlow />
-            <IntellectualRigor />
-            <MethodologyComparison />
+      <main className="w-full pt-16 flex-1">
+        {error && (
+          <div className="max-w-3xl mx-auto mt-4 px-4">
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm flex items-center gap-2">
+              <span className="material-symbols-outlined text-base">error</span>
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="ml-auto font-label text-xs font-semibold underline cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
+
+        {view === "upload" && (
+          <SyllabusUpload
+            onDone={() => {
+              refreshTasks();
+              setView("board");
+            }}
+          />
+        )}
+
+        {view === "board" && (
+          <StudyKanban
+            tasks={tasks}
+            refreshTasks={refreshTasks}
+            onNavigate={setView}
+          />
+        )}
+
+        {view === "timetable" && (
+          <Timetable tasks={tasks} onNavigate={setView} />
+        )}
       </main>
-
-      {/* Scholarly Footer */}
-      <Footer onOpenAuth={handleOpenAuth} onNavigate={navigateTo} />
-
-      {/* Scholar Auth Modal */}
-      {authModalOpen && (
-        <AuthModal
-          key={`${authModalTab}-${authModalOpen}`}
-          initialTab={authModalTab}
-          onClose={handleCloseAuth}
-        />
-      )}
     </div>
   );
 }
