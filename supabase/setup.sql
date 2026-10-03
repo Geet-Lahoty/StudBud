@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   title       text        NOT NULL,
-  subject     text        NOT NULL,
+  subject     text        NOT NULL DEFAULT 'General',
   study_date  date,
   exam_date   date,
   type        text        NOT NULL DEFAULT 'study'
@@ -18,12 +18,19 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- Add columns that might be missing on an existing table
+-- Upgrade existing tasks table if it was created with old schema
 DO $$ BEGIN
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS study_date  date;
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS exam_date   date;
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS type        text NOT NULL DEFAULT 'study';
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS quiz_score  int;
+  -- Add user_id if missing
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE;
+  -- Add subject if missing
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT 'General';
+  -- Add date and type columns if missing
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS study_date date;
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS exam_date date;
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT 'study';
+  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS quiz_score int;
+  -- If old project_id had a NOT NULL constraint, remove it
+  ALTER TABLE tasks ALTER COLUMN project_id DROP NOT NULL;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
