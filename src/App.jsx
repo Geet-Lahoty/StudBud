@@ -50,6 +50,26 @@ export default function App() {
     setAuthModalOpen(false);
   };
 
+  useEffect(() => {
+    // Check the current authentication session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Current session:", session);
+    });
+
+    // Listen for authentication changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event);
+      console.log("Session:", session);
+    });
+
+    // Clean up the listener when the app unmounts
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   return (
     <div className="bg-surface text-on-surface min-h-screen flex flex-col selection:bg-secondary-fixed selection:text-on-secondary-fixed">
       {/* Top Header Navigation */}
