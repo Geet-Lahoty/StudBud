@@ -6,7 +6,10 @@ import { useState } from "react";
 import { supabase } from "../supabase";
 
 export default function AuthScreen() {
+  const [mode, setMode] = useState("magic"); // "magic" | "password"
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -18,11 +21,44 @@ export default function AuthScreen() {
     setMessage(null);
 
     try {
-      const { error: err } = await supabase.auth.signInWithOtp({ email });
-      if (err) throw err;
-      setMessage("Check your email for a magic login link!");
+      if (mode === "magic") {
+        const { error: err } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: window.location.origin,
+          },
+        });
+        if (err) throw err;
+        setMessage("Check your email for a magic login link!");
+      } else {
+        if (isSignUp) {
+          const { error: err, data } = await supabase.auth.signUp({
+            email,
+            password,
+          });
+          if (err) throw err;
+          if (data?.session) {
+            setMessage("Account created and signed in!");
+          } else {
+            setMessage("Account created! You can now sign in.");
+            setIsSignUp(false);
+          }
+        } else {
+          const { error: err } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (err) throw err;
+        }
+      }
     } catch (err) {
-      setError(err.message || "Login failed. Please try again.");
+      if (err.message?.toLowerCase().includes("rate limit")) {
+        setError(
+          "Supabase email rate limit reached. Switch to 'Password' below or increase the limit in Supabase Dashboard → Auth → Rate Limits."
+        );
+      } else {
+        setError(err.message || "Login failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -46,24 +82,68 @@ export default function AuthScreen() {
 
         {/* Card */}
         <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-md p-6 sm:p-8">
+          {/* Auth Method Tabs */}
+          <div className="flex rounded-lg bg-surface-container-low p-1 mb-5 border border-outline-variant/60">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("magic");
+                setError(null);
+                setMessage(null);
+              }}
+              className={`flex-1 py-1.5 font-label text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                mode === "magic"
+                  ? "bg-primary text-on-primary shadow-xs"
+                  : "text-on-surface-variant hover:text-on-surface"
+              }`}
+            >
+              Magic Link
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("password");
+                setError(null);
+                setMessage(null);
+              }}
+              className={`flex-1 py-1.5 font-label text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                mode === "password"
+                  ? "bg-primary text-on-primary shadow-xs"
+                  : "text-on-surface-variant hover:text-on-surface"
+              }`}
+            >
+              Password
+            </button>
+          </div>
+
           <h2 className="font-serif text-lg text-primary font-semibold mb-1">
-            Sign in with email
+            {mode === "magic"
+              ? "Sign in with Magic Link"
+              : isSignUp
+              ? "Create an account"
+              : "Sign in with password"}
           </h2>
           <p className="font-body text-xs text-on-surface-variant mb-5">
-            We'll send you a magic link — no password needed.
+            {mode === "magic"
+              ? "We'll send you a login link — no password needed."
+              : isSignUp
+              ? "Choose an email and password to register."
+              : "Enter your email and password to log in directly."}
           </p>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-error-container text-on-error-container text-xs flex items-center gap-2">
-              <span className="material-symbols-outlined text-sm">error</span>
-              {error}
+            <div className="mb-4 p-3 rounded-lg bg-error-container text-on-error-container text-xs flex items-start gap-2">
+              <span className="material-symbols-outlined text-sm shrink-0 mt-0.5">
+                error
+              </span>
+              <span>{error}</span>
             </div>
           )}
 
           {message && (
             <div className="mb-4 p-3 rounded-lg bg-tertiary-fixed text-on-tertiary-fixed text-xs flex items-center gap-2">
               <span className="material-symbols-outlined text-sm">mail</span>
-              {message}
+              <span>{message}</span>
             </div>
           )}
 
@@ -86,6 +166,26 @@ export default function AuthScreen() {
               />
             </div>
 
+            {mode === "password" && (
+              <div>
+                <label
+                  htmlFor="login-password"
+                  className="block font-label text-xs uppercase tracking-wider text-on-surface font-semibold mb-1.5"
+                >
+                  Password
+                </label>
+                <input
+                  id="login-password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-surface-container-low border border-outline-variant text-on-surface px-4 py-2.5 rounded-lg text-sm focus:border-secondary focus:outline-none transition-colors"
+                />
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -96,15 +196,33 @@ export default function AuthScreen() {
                   <span className="material-symbols-outlined text-base animate-spin">
                     progress_activity
                   </span>
-                  Sending link…
+                  Processing…
                 </>
               ) : (
                 <>
-                  Send magic link
+                  {mode === "magic"
+                    ? "Send magic link"
+                    : isSignUp
+                    ? "Sign Up"
+                    : "Sign In"}
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </>
               )}
             </button>
+
+            {mode === "password" && (
+              <div className="text-center mt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="font-label text-xs text-secondary hover:underline cursor-pointer"
+                >
+                  {isSignUp
+                    ? "Already have an account? Sign in"
+                    : "Need an account? Create one"}
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>
