@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface: #faf8f6;
+  --color-surface: #fbf9f6;
   --color-surface-dim: #dbdad7;
   --color-surface-bright: #fbf9f6;
   --color-surface-container-lowest: #ffffff;
@@ -9,42 +9,99 @@
   --color-surface-container: #efeeeb;
   --color-surface-container-high: #eae8e5;
   --color-surface-container-highest: #e4e2df;
-  --color-primary: #1f2421;
-  --color-primary-container: #090e0b;
-  --color-on-primary: #ffffff;
-  --color-secondary: #c85a32;
-  --color-secondary-container: #fe8357;
-  --color-secondary-fixed: #ffdbcf;
-  --color-on-secondary: #ffffff;
-  --color-on-secondary-fixed: #390c00;
-  --color-on-surface: #1f2421;
-  --color-on-surface-variant: #71717a;
+  --color-surface-variant: #e4e2df;
+  --color-on-surface: #1b1c1a;
+  --color-on-surface-variant: #444845;
+  --color-inverse-surface: #30312f;
+  --color-inverse-on-surface: #f2f0ed;
   --color-outline: #747874;
-  --color-outline-variant: #e7e5e4;
+  --color-outline-variant: #c4c7c3;
+  --color-surface-tint: #5a605c;
+
+  --color-primary: #090e0b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #1f2421;
+  --color-on-primary-container: #868b87;
+  --color-inverse-primary: #c3c8c3;
+  --color-primary-fixed: #dfe4df;
+  --color-primary-fixed-dim: #c3c8c3;
+  --color-on-primary-fixed: #181d1a;
+  --color-on-primary-fixed-variant: #434844;
+
+  --color-secondary: #a23e18;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #fe8357;
+  --color-on-secondary-container: #6f2000;
+  --color-secondary-fixed: #ffdbcf;
+  --color-secondary-fixed-dim: #ffb59c;
+  --color-on-secondary-fixed: #390c00;
+  --color-on-secondary-fixed-variant: #822801;
+
+  --color-tertiary: #001008;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #00291a;
+  --color-on-tertiary-container: #66947d;
+  --color-tertiary-fixed: #bceed3;
+  --color-tertiary-fixed-dim: #a1d1b8;
+  --color-on-tertiary-fixed: #002114;
+  --color-on-tertiary-fixed-variant: #224f3c;
+
   --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
   --color-error-container: #ffdad6;
   --color-on-error-container: #93000a;
-  --color-tertiary-fixed: #d1fae5;
 
-  --font-serif: "Source Serif 4", Georgia, serif;
-  --font-newsreader: "Newsreader", Georgia, serif;
-  --font-sans: "Work Sans", system-ui, -apple-system, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --color-background: #fbf9f6;
+  --color-on-background: #1b1c1a;
 
-  --max-w-7xl: 84rem;
+  --font-headline-xl: "Source Serif 4", Georgia, serif;
+  --font-headline-md: "Source Serif 4", Georgia, serif;
+  --font-headline-sm: "Source Serif 4", Georgia, serif;
+  --font-display-lg: "Source Serif 4", Georgia, serif;
+  --font-body-lg: "Newsreader", Georgia, serif;
+  --font-body-md: "Newsreader", Georgia, serif;
+  --font-body-sm: "Newsreader", Georgia, serif;
+  --font-caption: "Newsreader", Georgia, serif;
+  --font-label-md: "Work Sans", system-ui, sans-serif;
+  --font-label-sm: "Work Sans", system-ui, sans-serif;
+
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.75rem;
+  --spacing-space-xl: 3rem;
+  --spacing-gutter: 1.5rem;
+  --spacing-gutter-lg: 2.5rem;
+  --spacing-margin: 1.5rem;
+  --spacing-margin-md: 3rem;
+  --spacing-margin-lg: 5rem;
 }
 
 body {
-  background-color: #faf8f6;
-  color: #1f2421;
-  font-family: "Work Sans", system-ui, -apple-system, sans-serif;
+  background-color: #fbf9f6;
+  color: #1b1c1a;
+  font-family: "Newsreader", Georgia, serif;
   -webkit-font-smoothing: antialiased;
 }
 
+.font-serif,
+.font-headline,
 .font-editorial-heading {
   font-family: "Source Serif 4", Georgia, serif;
 }
 
-.font-reading {
+.font-sans,
+.font-label {
+  font-family: "Work Sans", system-ui, sans-serif;
+}
+
+.font-reading,
+.font-body {
   font-family: "Newsreader", Georgia, serif;
+}
+
+/* Material symbol baseline alignment */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
 }

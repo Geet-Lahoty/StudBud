@@ -1,100 +1,117 @@
-import { useState } from "react";
-import BrandLogo from "./BrandLogo";
-import { NAVIGATION_LINKS } from "../data/content";
-
-export default function Header({ onOpenAuth }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+export default function Header({ currentPath, onNavigate, onOpenAuth }) {
+  const navItems = [
+    { id: "syllabus-upload", label: "Syllabus Upload" },
+    { id: "study-kanban", label: "Study Kanban" },
+    { id: "quiz-gate", label: "Quiz Gate" },
+    { id: "landing", label: "Methodology" },
+  ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8f6]/92 backdrop-blur-md border-b border-outline-variant">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between gap-6">
-        {/* Brand Logo Left */}
-        <a
-          href="#"
-          className="flex items-center gap-3 group focus:outline-hidden"
-          aria-label="stud bud Home"
-        >
-          <div className="h-10 flex items-center">
-            <BrandLogo />
-          </div>
-          <div className="hidden xl:flex flex-col border-l border-outline-variant pl-3">
-            <span className="text-[10px] font-mono font-semibold uppercase tracking-widest text-secondary">
-              Study System
-            </span>
-            <span className="text-[11px] text-on-surface-variant font-medium">
-              Smart Exam Prep
-            </span>
-          </div>
-        </a>
+    <header className="fixed top-0 left-0 right-0 z-50 bg-[#faf8f6]/92 backdrop-blur-md border-b border-outline-variant/60 shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+        {/* Brand Left */}
+        <div className="flex items-center gap-6">
+          <button
+            type="button"
+            onClick={() => onNavigate("study-kanban")}
+            className="flex items-center gap-2.5 group cursor-pointer text-left"
+          >
+            <div className="w-8 h-8 rounded bg-primary text-on-primary flex items-center justify-center font-serif font-bold text-sm">
+              SG
+            </div>
+            <div className="flex flex-col">
+              <span className="font-serif text-base text-primary leading-none font-bold">
+                StudyGate
+              </span>
+              <span className="font-label text-[10px] uppercase text-on-surface-variant tracking-wider">
+                Exam Mastery System
+              </span>
+            </div>
+          </button>
 
-        {/* Center Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-7">
-          {NAVIGATION_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-xs uppercase font-semibold tracking-wider text-on-surface-variant hover:text-secondary transition-colors py-1.5 border-b-2 border-transparent hover:border-secondary"
-            >
-              {link.label}
-            </a>
-          ))}
+          <div className="hidden xl:flex items-center px-2.5 py-1 bg-surface-container-low border border-outline-variant/50 rounded-lg">
+            <span className="font-label text-xs text-secondary font-semibold mr-2 uppercase tracking-wide">
+              Active Sprint
+            </span>
+            <span className="font-label text-xs text-on-surface">
+              CS 201: Data Structures • 6 Days to Exam • Sprint Health: 94%
+            </span>
+          </div>
+        </div>
+
+        {/* Center Navigation */}
+        <nav className="hidden md:flex items-center gap-1 bg-surface-container-low/70 p-1 rounded-xl border border-outline-variant/40">
+          {navItems.map((item) => {
+            const isActive = currentPath === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onNavigate(item.id)}
+                className={`font-label text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-lg transition-all cursor-pointer font-semibold ${
+                  isActive
+                    ? "bg-primary text-on-primary shadow-xs"
+                    : "text-on-surface-variant hover:text-on-surface hover:bg-surface-container"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Right Desktop Auth CTA & Mobile Toggle */}
+        {/* Right Action & Scholar Profile */}
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => onOpenAuth("login")}
-            className="inline-flex items-center gap-2 bg-primary text-on-primary text-xs font-semibold uppercase tracking-wider px-5 py-2.5 rounded hover:bg-black transition-all shadow-xs active:translate-y-px cursor-pointer"
+            onClick={() => onNavigate("syllabus-upload")}
+            className="hidden sm:inline-flex items-center justify-center px-3.5 py-1.5 bg-primary text-on-primary font-label text-xs uppercase tracking-wider rounded-lg hover:bg-black transition-colors shadow-xs cursor-pointer font-semibold"
           >
-            <span>Log In</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            + New Syllabus
           </button>
 
-          {/* Mobile hamburger button */}
           <button
             type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2 rounded text-primary hover:bg-surface-container transition-colors focus:outline-hidden cursor-pointer"
-            aria-label="Toggle Navigation Menu"
+            aria-label="Notifications"
+            className="p-1.5 text-on-surface-variant hover:text-on-surface transition-colors rounded-lg hover:bg-surface-container"
           >
-            <span className="material-symbols-outlined text-2xl">
-              {mobileMenuOpen ? "close" : "menu"}
-            </span>
+            <span className="material-symbols-outlined text-xl">notifications</span>
           </button>
+
+          <div className="flex items-center gap-2 pl-2 border-l border-outline-variant/60">
+            <div className="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-label text-xs font-bold border border-secondary/30">
+              AS
+            </div>
+            <div className="hidden lg:flex flex-col text-left">
+              <span className="font-label text-xs text-on-surface font-semibold leading-tight">
+                Ananya Sharma
+              </span>
+              <span className="font-body text-xs text-on-surface-variant leading-none">
+                Scholar
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-outline-variant bg-[#faf8f6] px-6 py-5 shadow-lg space-y-4 animate-in fade-in duration-150">
-          <nav className="flex flex-col space-y-3">
-            {NAVIGATION_LINKS.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-xs uppercase font-semibold tracking-wider text-on-surface hover:text-secondary py-1 transition-colors"
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
-          <div className="pt-3 border-t border-outline-variant/60 flex flex-col gap-2">
+      {/* Mobile Nav Bar */}
+      <div className="md:hidden flex items-center justify-around border-t border-outline-variant/40 bg-surface-container-low px-2 py-1">
+        {navItems.map((item) => {
+          const isActive = currentPath === item.id;
+          return (
             <button
+              key={item.id}
               type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenAuth("login");
-              }}
-              className="w-full inline-flex items-center justify-center gap-2 bg-primary text-on-primary text-xs font-semibold uppercase tracking-wider py-2.5 rounded hover:bg-black transition-colors cursor-pointer"
+              onClick={() => onNavigate(item.id)}
+              className={`font-label text-[11px] uppercase tracking-wider px-2 py-1 rounded transition-colors ${
+                isActive ? "text-secondary font-bold" : "text-on-surface-variant"
+              }`}
             >
-              <span>Log In</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              {item.label}
             </button>
-          </div>
-        </div>
-      )}
+          );
+        })}
+      </div>
     </header>
   );
 }
