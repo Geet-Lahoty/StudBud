@@ -380,7 +380,11 @@ export default function Timetable({ tasks = [], onNavigate }) {
                     {dateTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="bg-surface-container-low p-3.5 rounded-xl border border-outline-variant/60"
+                        className={`p-3.5 rounded-xl border ${
+                          task.status === "done"
+                            ? "bg-emerald-50/40 border-emerald-200/80"
+                            : "bg-surface-container-low border-outline-variant/60"
+                        }`}
                       >
                         <div className="flex items-center justify-between mb-1.5">
                           <span
@@ -390,11 +394,24 @@ export default function Timetable({ tasks = [], onNavigate }) {
                           >
                             {task.subject}
                           </span>
-                          <span className="font-label text-[10px] uppercase text-on-surface-variant">
-                            {task.type}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {task.status === "done" && (
+                              <span className="px-1.5 py-0.5 rounded font-label text-[9px] font-bold bg-emerald-100 text-emerald-800">
+                                Done
+                              </span>
+                            )}
+                            <span className="font-label text-[10px] uppercase text-on-surface-variant">
+                              {task.type}
+                            </span>
+                          </div>
                         </div>
-                        <h4 className="font-serif text-xs font-medium text-primary line-clamp-2">
+                        <h4
+                          className={`font-serif text-xs font-medium line-clamp-2 ${
+                            task.status === "done"
+                              ? "text-on-surface-variant line-through"
+                              : "text-primary"
+                          }`}
+                        >
                           {task.title}
                         </h4>
                       </div>

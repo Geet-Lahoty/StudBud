@@ -35,17 +35,32 @@ export default function App() {
   const refreshTasks = useCallback(async () => {
     if (!session) return;
     try {
-      setError(null);
       const data = await loadTasks();
       setTasks(data);
+      setError(null);
     } catch (err) {
       setError(err.message);
     }
   }, [session]);
 
   useEffect(() => {
-    refreshTasks();
-  }, [refreshTasks]);
+    let ignore = false;
+    if (session) {
+      loadTasks()
+        .then((data) => {
+          if (!ignore) {
+            setTasks(data);
+            setError(null);
+          }
+        })
+        .catch((err) => {
+          if (!ignore) setError(err.message);
+        });
+    }
+    return () => {
+      ignore = true;
+    };
+  }, [session]);
 
   // ── Logout ──
   const handleLogout = async () => {
@@ -82,7 +97,7 @@ export default function App() {
         userEmail={session.user?.email}
       />
 
-      <main className="w-full pt-16 flex-1">
+      <main className="w-full pt-28 sm:pt-20 flex-1">
         {error && (
           <div className="max-w-3xl mx-auto mt-4 px-4">
             <div className="p-3 rounded-lg bg-error-container text-on-error-container text-sm flex items-center gap-2">
@@ -101,8 +116,8 @@ export default function App() {
 
         {view === "upload" && (
           <SyllabusUpload
-            onDone={() => {
-              refreshTasks();
+            onDone={async () => {
+              await refreshTasks();
               setView("board");
             }}
           />

@@ -11,6 +11,16 @@ import { compressImage } from "../utils/image";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
+function getTodayString() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+const TODAY_STR = getTodayString();
+
 export default function SyllabusUpload({ onDone }) {
   // Step: "pick" → "review" → "saving"
   const [step, setStep] = useState("pick");
@@ -36,6 +46,11 @@ export default function SyllabusUpload({ onDone }) {
       return;
     }
     setError(null);
+
+    // Revoke previous object URL if any
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
 
     // Compress
     let compressed;
@@ -178,6 +193,7 @@ export default function SyllabusUpload({ onDone }) {
                 <button
                   type="button"
                   onClick={() => {
+                    if (preview) URL.revokeObjectURL(preview);
                     setPreview(null);
                     setFile(null);
                   }}
@@ -272,6 +288,7 @@ export default function SyllabusUpload({ onDone }) {
                     <input
                       type="date"
                       required
+                      min={TODAY_STR}
                       value={examDates[s.subject] || ""}
                       onChange={(e) =>
                         setExamDates({ ...examDates, [s.subject]: e.target.value })

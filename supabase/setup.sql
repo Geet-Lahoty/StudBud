@@ -1,11 +1,16 @@
--- StudyGate – Database Setup (idempotent)
--- Run this in the Supabase SQL Editor (or via supabase db push).
--- Safe to run more than once.
+-- StudyGate – Complete Database Setup & Reset
+-- Run this in the Supabase SQL Editor (https://app.supabase.com/)
+-- This script cleanly resets existing tables and recreates the schema with all constraints and RLS.
 
--- ── tasks table ──────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS tasks (
+-- ── 1. Teardown existing tables (Full Reset) ─────────────────────────
+DROP TABLE IF EXISTS quiz_attempts CASCADE;
+DROP TABLE IF EXISTS tasks CASCADE;
+DROP TABLE IF EXISTS projects CASCADE; -- cleans up legacy projects table if present
+
+-- ── 2. Create tasks table ───────────────────────────────────────────
+CREATE TABLE tasks (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
+  user_id     uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   title       text        NOT NULL,
   subject     text        NOT NULL DEFAULT 'General',
   study_date  date,
@@ -18,27 +23,13 @@ CREATE TABLE IF NOT EXISTS tasks (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- Upgrade existing tasks table if it was created with old schema
-DO $$ BEGIN
-  -- Add user_id if missing
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users ON DELETE CASCADE;
-  ALTER TABLE tasks ALTER COLUMN user_id SET DEFAULT auth.uid();
-  -- Add subject if missing
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT 'General';
-  -- Add date and type columns if missing
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS study_date date;
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS exam_date date;
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT 'study';
-  ALTER TABLE tasks ADD COLUMN IF NOT EXISTS quiz_score int;
-  -- If old project_id had a NOT NULL constraint, remove it
-  ALTER TABLE tasks ALTER COLUMN project_id DROP NOT NULL;
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$;
+-- Index for ordering by study_date and querying per user
+CREATE INDEX idx_tasks_user_date ON tasks (user_id, study_date);
 
--- ── quiz_attempts table ──────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS quiz_attempts (
+-- ── 3. Create quiz_attempts table ───────────────────────────────────
+CREATE TABLE quiz_attempts (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
+  user_id     uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   task_id     uuid        NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
   score       int         NOT NULL,
   total       int         NOT NULL DEFAULT 5,
@@ -46,11 +37,14 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- ── Enable Row Level Security ────────────────────────────────────
+-- Index for querying attempts per user and task
+CREATE INDEX idx_quiz_attempts_user_task ON quiz_attempts (user_id, task_id);
+
+-- ── 4. Enable Row Level Security (RLS) ──────────────────────────────
 ALTER TABLE tasks          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quiz_attempts  ENABLE ROW LEVEL SECURITY;
 
--- ── RLS policies (drop-then-create for idempotency) ──────────────
+-- ── 5. RLS Policies ─────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Users manage own tasks" ON tasks;
 CREATE POLICY "Users manage own tasks" ON tasks
   FOR ALL

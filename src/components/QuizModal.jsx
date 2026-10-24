@@ -50,6 +50,15 @@ export default function QuizModal({ task, onClose, onPass }) {
   const score = results.filter((r) => r.correct).length;
   const passed = score >= 4;
 
+  // When passed, closing the modal notifies parent (onPass) to refresh tasks
+  const handleClose = () => {
+    if (passed) {
+      onPass();
+    } else {
+      onClose();
+    }
+  };
+
   // Select an option (before confirming)
   const handleSelect = (idx) => {
     if (answered) return;
@@ -76,14 +85,14 @@ export default function QuizModal({ task, onClose, onPass }) {
     }
   };
 
-  // Save attempt and optionally mark done
+  // Save attempt and optionally mark done (does NOT dismiss modal so user can see victory screen)
   const handleSaveResult = async () => {
     try {
       setSaving(true);
+      setError(null);
       await saveQuizAttempt(task.id, score, 5, passed);
       if (passed) {
         await markTaskDone(task.id, score);
-        onPass();
       }
     } catch (err) {
       setError(err.message);
@@ -139,7 +148,7 @@ export default function QuizModal({ task, onClose, onPass }) {
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-primary/40 backdrop-blur-sm"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !saving) onClose();
+        if (e.target === e.currentTarget && !saving) handleClose();
       }}
     >
       <div className="relative w-full max-w-2xl bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -160,7 +169,7 @@ export default function QuizModal({ task, onClose, onPass }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={saving}
             className="p-1.5 text-on-surface-variant hover:text-primary rounded-lg transition-colors cursor-pointer"
           >
@@ -359,13 +368,23 @@ export default function QuizModal({ task, onClose, onPass }) {
 
             {saving && (
               <span className="font-label text-xs text-on-surface-variant mb-4">
-                Saving…
+                Saving result…
               </span>
             )}
 
             {error && (
-              <div className="mb-4 p-3 rounded-lg bg-error-container text-on-error-container text-xs">
-                {error}
+              <div className="mb-4 flex flex-col items-center gap-2">
+                <div className="p-3 rounded-lg bg-error-container text-on-error-container text-xs">
+                  {error}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveResult}
+                  disabled={saving}
+                  className="px-3 py-1.5 bg-secondary text-on-secondary font-label text-xs uppercase font-semibold rounded cursor-pointer disabled:opacity-60"
+                >
+                  {saving ? "Saving…" : "Retry saving result"}
+                </button>
               </div>
             )}
 
@@ -373,8 +392,8 @@ export default function QuizModal({ task, onClose, onPass }) {
               {passed ? (
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="px-6 py-3 bg-primary text-on-primary font-label text-xs uppercase rounded-lg cursor-pointer"
+                  onClick={handleClose}
+                  className="px-6 py-3 bg-primary text-on-primary font-label text-xs uppercase font-semibold rounded-lg cursor-pointer hover:bg-primary-container transition-colors shadow-sm"
                 >
                   Back to Board
                 </button>
@@ -383,14 +402,14 @@ export default function QuizModal({ task, onClose, onPass }) {
                   <button
                     type="button"
                     onClick={handleRetry}
-                    className="px-5 py-3 bg-secondary text-on-secondary font-label text-xs uppercase rounded-lg cursor-pointer"
+                    className="px-5 py-3 bg-secondary text-on-secondary font-label text-xs uppercase font-semibold rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                   >
                     Retry with new questions
                   </button>
                   <button
                     type="button"
-                    onClick={onClose}
-                    className="px-5 py-3 border border-outline-variant font-label text-xs uppercase rounded-lg text-on-surface-variant cursor-pointer"
+                    onClick={handleClose}
+                    className="px-5 py-3 border border-outline-variant font-label text-xs uppercase rounded-lg text-on-surface-variant cursor-pointer hover:text-on-surface transition-colors"
                   >
                     Close
                   </button>

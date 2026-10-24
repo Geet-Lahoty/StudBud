@@ -39,7 +39,10 @@ function urgencyBadge(examDate) {
   const exam = new Date(examDate + "T00:00:00");
   const days = Math.ceil((exam - today) / (1000 * 60 * 60 * 24));
 
-  if (days <= 2) return { label: `${days}d left`, cls: "bg-error text-on-error" };
+  if (days < 0) return { label: "Exam passed", cls: "bg-error text-on-error" };
+  if (days === 0) return { label: "Exam today", cls: "bg-error text-on-error" };
+  if (days === 1) return { label: "Tomorrow", cls: "bg-error text-on-error" };
+  if (days === 2) return { label: "2d left", cls: "bg-error text-on-error" };
   if (days <= 7) return { label: `${days}d left`, cls: "bg-amber-500 text-white" };
   return { label: `${days}d left`, cls: "bg-tertiary-fixed text-on-tertiary-fixed" };
 }
@@ -66,10 +69,11 @@ function Column({ title, count, dotColor, items, renderCard }) {
   );
 }
 
-export default function StudyKanban({ tasks, refreshTasks, onNavigate }) {
+export default function StudyKanban({ tasks = [], refreshTasks, onNavigate }) {
   const [filter, setFilter] = useState("all");
   const [quizTask, setQuizTask] = useState(null);
   const [actionLoading, setActionLoading] = useState(null); // task id being acted on
+  const [localError, setLocalError] = useState(null);
 
   // Split tasks by status
   const allSubjects = [...new Set(tasks.map((t) => t.subject).filter(Boolean))];
@@ -81,11 +85,12 @@ export default function StudyKanban({ tasks, refreshTasks, onNavigate }) {
   // Move task to "in_progress"
   const handleStart = async (task) => {
     try {
+      setLocalError(null);
       setActionLoading(task.id);
       await updateTaskStatus(task.id, "in_progress");
       await refreshTasks();
-    } catch {
-      // error shown at app level
+    } catch (err) {
+      setLocalError(err.message || "Failed to update task status. Please try again.");
     } finally {
       setActionLoading(null);
     }
@@ -127,6 +132,22 @@ export default function StudyKanban({ tasks, refreshTasks, onNavigate }) {
 
   return (
     <div className="w-full px-4 sm:px-6 lg:px-10 py-6 max-w-7xl mx-auto">
+      {localError && (
+        <div className="mb-4 p-3 rounded-lg bg-error-container text-on-error-container text-sm flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">error</span>
+            <span>{localError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setLocalError(null)}
+            className="font-label text-xs font-semibold underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Subject filter */}
       <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-2">
         <button
@@ -163,43 +184,46 @@ export default function StudyKanban({ tasks, refreshTasks, onNavigate }) {
           count={todo.length}
           dotColor="bg-outline-variant"
           items={todo}
-          renderCard={(task) => (
-            <article
-              key={task.id}
-              className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-outline-variant/60"
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className={`px-2 py-0.5 rounded font-label text-[11px] font-semibold ${subjectColor(task.subject)}`}>
-                  {task.subject}
-                </span>
-                {urgencyBadge(task.exam_date) && (
-                  <span className={`px-1.5 py-0.5 rounded font-label text-[10px] font-bold ${urgencyBadge(task.exam_date).cls}`}>
-                    {urgencyBadge(task.exam_date).label}
-                  </span>
-                )}
-              </div>
-              <h3 className="font-serif text-sm text-primary font-medium mb-1">
-                {task.title}
-              </h3>
-              <div className="flex items-center gap-2 text-on-surface-variant font-body text-xs mb-3">
-                <span>{task.study_date}</span>
-                {task.type !== "study" && (
-                  <span className="px-1.5 py-0.5 rounded bg-surface-container font-label text-[10px] uppercase">
-                    {task.type}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleStart(task)}
-                disabled={actionLoading === task.id}
-                className="w-full py-2 bg-primary text-on-primary rounded-lg font-label text-xs uppercase font-semibold cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1"
+          renderCard={(task) => {
+            const urgency = urgencyBadge(task.exam_date);
+            return (
+              <article
+                key={task.id}
+                className="bg-surface-container-lowest p-4 rounded-xl shadow-xs border border-outline-variant/60"
               >
-                {actionLoading === task.id ? "Starting…" : "Start"}
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </button>
-            </article>
-          )}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`px-2 py-0.5 rounded font-label text-[11px] font-semibold ${subjectColor(task.subject)}`}>
+                    {task.subject}
+                  </span>
+                  {urgency && (
+                    <span className={`px-1.5 py-0.5 rounded font-label text-[10px] font-bold ${urgency.cls}`}>
+                      {urgency.label}
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-serif text-sm text-primary font-medium mb-1">
+                  {task.title}
+                </h3>
+                <div className="flex items-center gap-2 text-on-surface-variant font-body text-xs mb-3">
+                  <span>{task.study_date}</span>
+                  {task.type !== "study" && (
+                    <span className="px-1.5 py-0.5 rounded bg-surface-container font-label text-[10px] uppercase">
+                      {task.type}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleStart(task)}
+                  disabled={actionLoading === task.id}
+                  className="w-full py-2 bg-primary text-on-primary rounded-lg font-label text-xs uppercase font-semibold cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1"
+                >
+                  {actionLoading === task.id ? "Starting…" : "Start"}
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </button>
+              </article>
+            );
+          }}
         />
 
         <Column
@@ -207,42 +231,45 @@ export default function StudyKanban({ tasks, refreshTasks, onNavigate }) {
           count={inProgress.length}
           dotColor="bg-secondary"
           items={inProgress}
-          renderCard={(task) => (
-            <article
-              key={task.id}
-              className="bg-surface-container-lowest p-4 rounded-xl shadow-md border border-outline-variant/60"
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className={`px-2 py-0.5 rounded font-label text-[11px] font-semibold ${subjectColor(task.subject)}`}>
-                  {task.subject}
-                </span>
-                {urgencyBadge(task.exam_date) && (
-                  <span className={`px-1.5 py-0.5 rounded font-label text-[10px] font-bold ${urgencyBadge(task.exam_date).cls}`}>
-                    {urgencyBadge(task.exam_date).label}
-                  </span>
-                )}
-              </div>
-              <h3 className="font-serif text-sm text-primary font-semibold mb-1">
-                {task.title}
-              </h3>
-              <div className="flex items-center gap-2 text-on-surface-variant font-body text-xs mb-3">
-                <span>{task.study_date}</span>
-                {task.type !== "study" && (
-                  <span className="px-1.5 py-0.5 rounded bg-surface-container font-label text-[10px] uppercase">
-                    {task.type}
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => handleTakeQuiz(task)}
-                className="w-full py-2 bg-secondary text-on-secondary rounded-lg font-label text-xs uppercase font-semibold cursor-pointer flex items-center justify-center gap-1"
+          renderCard={(task) => {
+            const urgency = urgencyBadge(task.exam_date);
+            return (
+              <article
+                key={task.id}
+                className="bg-surface-container-lowest p-4 rounded-xl shadow-md border border-outline-variant/60"
               >
-                <span className="material-symbols-outlined text-sm">school</span>
-                Take quiz to finish
-              </button>
-            </article>
-          )}
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`px-2 py-0.5 rounded font-label text-[11px] font-semibold ${subjectColor(task.subject)}`}>
+                    {task.subject}
+                  </span>
+                  {urgency && (
+                    <span className={`px-1.5 py-0.5 rounded font-label text-[10px] font-bold ${urgency.cls}`}>
+                      {urgency.label}
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-serif text-sm text-primary font-semibold mb-1">
+                  {task.title}
+                </h3>
+                <div className="flex items-center gap-2 text-on-surface-variant font-body text-xs mb-3">
+                  <span>{task.study_date}</span>
+                  {task.type !== "study" && (
+                    <span className="px-1.5 py-0.5 rounded bg-surface-container font-label text-[10px] uppercase">
+                      {task.type}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleTakeQuiz(task)}
+                  className="w-full py-2 bg-secondary text-on-secondary rounded-lg font-label text-xs uppercase font-semibold cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-sm">school</span>
+                  Take quiz to finish
+                </button>
+              </article>
+            );
+          }}
         />
 
         <Column

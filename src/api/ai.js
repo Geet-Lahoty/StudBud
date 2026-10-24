@@ -100,20 +100,59 @@ function mockDelay() {
 // ──────────────────────────── parseJson ─────────────────────────
 
 /**
- * Strip markdown code fences and parse JSON.
- * Models often wrap their reply in ```json ... ``` – this handles that.
+ * Strip markdown code fences or extract JSON from text and parse.
+ * Handles cases where models wrap replies in ```json ... ``` or include conversational text.
  *
  * @param {string} text  Raw text from the model.
  * @returns {object}     Parsed JavaScript object.
- * @throws {Error}       If the text is not valid JSON after cleaning.
+ * @throws {Error}       If valid JSON cannot be found and parsed.
  */
 export function parseJson(text) {
-  const cleaned = text.replace(/```json|```/g, "").trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
+  if (!text || typeof text !== "string") {
     throw new Error("The AI returned an invalid answer. Please try again.");
   }
+  const trimmed = text.trim();
+
+  // 1. Direct parse attempt
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // Continue
+  }
+
+  // 2. Extract from markdown code fence
+  const codeBlockMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    try {
+      return JSON.parse(codeBlockMatch[1].trim());
+    } catch {
+      // Continue
+    }
+  }
+
+  // 3. Extract between outer braces { ... }
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+    } catch {
+      // Continue
+    }
+  }
+
+  // 4. Extract between outer brackets [ ... ]
+  const firstBracket = trimmed.indexOf("[");
+  const lastBracket = trimmed.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      return JSON.parse(trimmed.slice(firstBracket, lastBracket + 1));
+    } catch {
+      // Continue
+    }
+  }
+
+  throw new Error("The AI returned an invalid answer. Please try again.");
 }
 
 // ──────────────────────────── mock data ─────────────────────────
@@ -153,20 +192,20 @@ const MOCK_QUIZ = {
     },
     {
       question: "Which traversal visits the root node first?",
-      options: ["Inorder", "Preorder", "Postorder", "Level-order"],
-      answer_index: 1,
+      options: ["Preorder", "Inorder", "Postorder", "Level-order"],
+      answer_index: 0,
       explanation: "Preorder visits root, then left subtree, then right subtree.",
     },
     {
       question: "A full binary tree with n internal nodes has how many leaves?",
-      options: ["n", "n + 1", "2n", "n - 1"],
-      answer_index: 1,
+      options: ["n", "2n", "n + 1", "n - 1"],
+      answer_index: 2,
       explanation: "A full binary tree always has exactly n + 1 leaf nodes.",
     },
     {
       question: "What data structure is used in BFS?",
-      options: ["Stack", "Queue", "Priority Queue", "Deque"],
-      answer_index: 1,
+      options: ["Stack", "Priority Queue", "Deque", "Queue"],
+      answer_index: 3,
       explanation: "BFS uses a queue to process nodes level by level.",
     },
     {
@@ -238,10 +277,13 @@ function isValidQuiz(quiz) {
     if (!Array.isArray(q.options) || q.options.length !== 4) return false;
     if (q.options.some((o) => typeof o !== "string" || o.trim() === ""))
       return false;
-    if (!Number.isInteger(q.answer_index) || q.answer_index < 0 || q.answer_index > 3)
+    const ansIdx = Number(q.answer_index);
+    if (!Number.isInteger(ansIdx) || ansIdx < 0 || ansIdx > 3)
       return false;
-    if (typeof q.explanation !== "string" || q.explanation.trim() === "")
-      return false;
+    q.answer_index = ansIdx;
+    if (typeof q.explanation !== "string" || q.explanation.trim() === "") {
+      q.explanation = "Correct answer based on the topic.";
+    }
     return true;
   });
 }
@@ -401,10 +443,13 @@ export async function generateQuiz(subject, topic) {
   if (isValidQuiz(quiz)) return quiz;
 
   // Validation failed – retry once with same prompt
-  text = await callGemma(prompt);
-  quiz = parseJson(text);
-
-  if (isValidQuiz(quiz)) return quiz;
+  try {
+    text = await callGemma(prompt);
+    quiz = parseJson(text);
+    if (isValidQuiz(quiz)) return quiz;
+  } catch {
+    // Continue to throw user-friendly error
+  }
 
   throw new Error("The AI returned an invalid answer. Please try again.");
 }
