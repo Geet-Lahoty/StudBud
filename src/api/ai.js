@@ -2,36 +2,22 @@
  * StudyGate – AI API Module
  *
  * This file contains every AI-related function the frontend needs.
- * It talks to the Gemini API via the @google/genai SDK and returns
- * plain JavaScript objects.  If VITE_USE_MOCK is "true" in .env,
+ * It talks to the Supabase Edge Function ("ai") and returns
+ * plain JavaScript objects. If VITE_USE_MOCK is "true" in .env,
  * all functions return hardcoded sample data so the rest of the
  * team can keep building without an API key.
  *
  * Exports: extractTopics, buildTasks, generateQuiz, parseJson
  */
 
-import { GoogleGenAI } from "@google/genai";
+import { supabase } from "../supabase";
 
 // ──────────────────────────── config ────────────────────────────
 
-/** Change the model name here only – every function reads this constant. */
-const MODEL = "gemma-4-26b-a4b-it";
-
-/** When true, functions return fake data instead of hitting the API. */
+/** When true, functions return fake data instead of hitting the Edge Function. */
 const USE_MOCK =
   import.meta.env.VITE_USE_MOCK === "true" ||
   import.meta.env.USE_MOCK === "true";
-
-/**
- * SDK client.  Created once on module load.
- * In mock mode the key might be empty – that's fine, we never call the API.
- */
-const apiKey =
-  import.meta.env.VITE_GEMINI_API_KEY ||
-  import.meta.env.GEMINI_API_KEY ||
-  "";
-
-const ai = new GoogleGenAI({ apiKey });
 
 // ──────────────────────────── helpers ───────────────────────────
 
@@ -39,7 +25,7 @@ const ai = new GoogleGenAI({ apiKey });
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /**
- * Read a browser File object and return a Part the SDK can send.
+ * Read a browser File object and return a Part the SDK / function can send.
  * The Part uses inlineData with the base64-encoded file content.
  */
 function fileToPart(file) {
@@ -66,28 +52,45 @@ function fileToPart(file) {
 }
 
 /**
- * Send a prompt (with optional image parts) to the model.
- * Returns the raw text string from the model's response.
- *
- * Handles two special error cases:
- *  - 401 → clear "key rejected" message, no retry
- *  - anything else → generic "could not reach" message
+ * Invoke the deployed Supabase Edge Function 'ai'.
+ * Supabase client automatically attaches the active user's session JWT.
  */
-async function callGemma(contents) {
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents,
-    });
-    return response.text;
-  } catch (err) {
-    if (String(err.message).includes("401")) {
+async function callEdgeFunction(action, payload) {
+  const { data, error } = await supabase.functions.invoke("ai", {
+    body: { action, payload },
+  });
+
+  if (error) {
+    let errorMsg = error.message;
+    try {
+      if (error.context && typeof error.context.json === "function") {
+        const body = await error.context.json();
+        if (body.error) errorMsg = body.error;
+      }
+    } catch {
+      // ignore
+    }
+
+    if (
+      errorMsg?.includes("401") ||
+      errorMsg?.toLowerCase().includes("unauthorized")
+    ) {
       throw new Error(
-        "Gemini API key was rejected (401). Check the key or try a new one."
+        "Authentication failed or session expired. Please log in again."
       );
     }
-    throw new Error("Could not reach the AI. Please try again.");
+    throw new Error(errorMsg || "Could not reach the AI service. Please try again.");
   }
+
+  if (data?.text !== undefined) {
+    return data.text;
+  }
+
+  if (data) {
+    return data;
+  }
+
+  throw new Error("The AI returned an empty response. Please try again.");
 }
 
 /**
@@ -103,11 +106,15 @@ function mockDelay() {
  * Strip markdown code fences or extract JSON from text and parse.
  * Handles cases where models wrap replies in ```json ... ``` or include conversational text.
  *
- * @param {string} text  Raw text from the model.
- * @returns {object}     Parsed JavaScript object.
- * @throws {Error}       If valid JSON cannot be found and parsed.
+ * @param {string|object} text  Raw text from the model or parsed JSON.
+ * @returns {object}            Parsed JavaScript object.
+ * @throws {Error}              If valid JSON cannot be found and parsed.
  */
 export function parseJson(text) {
+  if (typeof text === "object" && text !== null) {
+    return text;
+  }
+
   if (!text || typeof text !== "string") {
     throw new Error("The AI returned an invalid answer. Please try again.");
   }
@@ -294,7 +301,7 @@ function isValidQuiz(quiz) {
  * 1. extractTopics(syllabusFile)
  *
  * Takes a File object (image) from an <input type="file">,
- * sends it to the model with the extraction prompt,
+ * sends it to the Edge Function with the extraction prompt,
  * and returns { subjects: [...] }.
  *
  * @param {File} syllabusFile  PNG, JPEG or WebP image of a syllabus.
@@ -307,18 +314,24 @@ export async function extractTopics(syllabusFile) {
     return structuredClone(MOCK_SUBJECTS);
   }
 
-  // Convert the image file to a Part the SDK understands
+  // Convert the image file to a Part the SDK / backend understands
   const imagePart = await fileToPart(syllabusFile);
 
   // First attempt
-  let text = await callGemma([imagePart, EXTRACTION_PROMPT]);
+  let text = await callEdgeFunction("extractTopics", {
+    imagePart,
+    prompt: EXTRACTION_PROMPT,
+  });
   let result;
 
   try {
     result = parseJson(text);
   } catch {
     // Retry once if JSON was bad
-    text = await callGemma([imagePart, EXTRACTION_PROMPT]);
+    text = await callEdgeFunction("extractTopics", {
+      imagePart,
+      prompt: EXTRACTION_PROMPT,
+    });
     result = parseJson(text); // throws if still bad
   }
 
@@ -412,7 +425,7 @@ export function buildTasks(subjectsWithDates) {
 /**
  * 3. generateQuiz(subject, topic)
  *
- * Asks the model for 5 MCQ questions on the given topic.
+ * Asks the Edge Function for 5 MCQ questions on the given topic.
  * Validates the response shape and retries once on failure.
  *
  * @param {string} subject  e.g. "Data Structures"
@@ -429,14 +442,22 @@ export async function generateQuiz(subject, topic) {
   const prompt = quizPrompt(subject, topic);
 
   // First attempt
-  let text = await callGemma(prompt);
+  let text = await callEdgeFunction("generateQuiz", {
+    subject,
+    topic,
+    prompt,
+  });
   let quiz;
 
   try {
     quiz = parseJson(text);
   } catch {
     // Bad JSON – retry once
-    text = await callGemma(prompt);
+    text = await callEdgeFunction("generateQuiz", {
+      subject,
+      topic,
+      prompt,
+    });
     quiz = parseJson(text); // throws if still bad
   }
 
@@ -444,7 +465,11 @@ export async function generateQuiz(subject, topic) {
 
   // Validation failed – retry once with same prompt
   try {
-    text = await callGemma(prompt);
+    text = await callEdgeFunction("generateQuiz", {
+      subject,
+      topic,
+      prompt,
+    });
     quiz = parseJson(text);
     if (isValidQuiz(quiz)) return quiz;
   } catch {
