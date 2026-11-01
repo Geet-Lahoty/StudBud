@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "./supabase";
+import { supabase, isConfigured } from "./supabase";
 import Header from "./components/Header";
 import AuthScreen from "./components/AuthScreen";
 import SyllabusUpload from "./pages/SyllabusUpload";
@@ -12,11 +12,13 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [view, setView] = useState("board");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isConfigured);
   const [error, setError] = useState(null);
 
   // ── Auth: read session on mount + listen for changes ──
   useEffect(() => {
+    if (!isConfigured) return;
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setLoading(false);
@@ -28,12 +30,12 @@ export default function App() {
       setSession(s);
     });
 
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe?.();
   }, []);
 
   // ── Load tasks whenever the session changes ──
   const refreshTasks = useCallback(async () => {
-    if (!session) return;
+    if (!session || !isConfigured) return;
     try {
       const data = await loadTasks();
       setTasks(data);
@@ -45,7 +47,7 @@ export default function App() {
 
   useEffect(() => {
     let ignore = false;
-    if (session) {
+    if (session && isConfigured) {
       loadTasks()
         .then((data) => {
           if (!ignore) {
@@ -70,7 +72,40 @@ export default function App() {
     setView("board");
   };
 
-  // ── No session → auth screen ──
+  // ── Missing configuration screen ──
+  if (!isConfigured) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+        <div className="bg-surface-container-lowest border border-error/30 rounded-2xl p-8 max-w-lg shadow-xl text-center">
+          <div className="w-16 h-16 rounded-full bg-error-container text-on-error-container flex items-center justify-center mx-auto mb-4">
+            <span className="material-symbols-outlined text-3xl">warning</span>
+          </div>
+          <h1 className="font-serif text-2xl text-primary font-bold mb-2">
+            Supabase Configuration Missing
+          </h1>
+          <p className="font-body text-sm text-on-surface-variant mb-6 text-left leading-relaxed">
+            The application cannot connect to your backend because the Supabase environment variables were not found during the deployment build.
+          </p>
+          <div className="bg-surface-container-low p-4 rounded-xl text-left font-mono text-xs text-on-surface mb-6 border border-outline-variant space-y-2">
+            <p className="font-sans font-semibold text-secondary">
+              Add these variables in your hosting dashboard (Vercel / Netlify / Cloudflare):
+            </p>
+            <div className="bg-surface p-2 rounded border border-outline-variant/60 select-all">
+              <strong>VITE_SUPABASE_URL</strong> = https://your-project.supabase.co
+            </div>
+            <div className="bg-surface p-2 rounded border border-outline-variant/60 select-all">
+              <strong>VITE_SUPABASE_ANON_KEY</strong> = eyJhbGci...
+            </div>
+          </div>
+          <p className="font-body text-xs text-on-surface-variant">
+            After saving these variables in your hosting settings, trigger a <strong>Redeploy</strong>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Loading state ──
   if (loading) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -84,6 +119,7 @@ export default function App() {
     );
   }
 
+  // ── No session → auth screen ──
   if (!session) {
     return <AuthScreen />;
   }
